@@ -1,0 +1,8 @@
+#+TITLE: Helper tasks for projects
+
+* Development
+
+Launch bb and connect to the nrepl server from your IDE.
+#+BEGIN_SRC: sh
+bb --nrepl-server
+#+END_SRC
