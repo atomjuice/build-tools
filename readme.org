@@ -1,0 +1,45 @@
+#+TITLE: Helper tasks for projects
+
+* Development
+
+Launch bb and connect to the nrepl server from your IDE.
+#+BEGIN_SRC: sh
+bb --nrepl-server
+#+END_SRC
+
+
+* Usage
+make sure bb tool is available on your PATH, create bb.edn in the project your interested in like below.
+Copy the tasks you actually need for the project.
+
+#+BEGIN_SRC: clojure
+{:paths ["src"]
+ :deps {atomjuice/build-tools {:git/url "git@github.com:atomjuice/build-tools.git"
+                               :git/sha "1217cce7032d65394105f11b7ed9216bcbdf86d3"}}
+ :tasks
+ {hooks {:doc "Hook related commands"
+         :requires ([build-tools.git-hooks :as gh])
+         :task (apply gh/hooks *command-line-args*)}
+
+  fetch-artifact-images
+  {:doc "Fetch project images"
+   :requires ([gcp.clean-artifact-registry :as ar])
+   :task (apply ar/list-artifact-images *command-line-args*)}}}
+#+END_SRC
+
+** invoking
+This will list the installed task in =bb.edn=
+#+BEGIN_SRC: sh
+bb tasks
+#+END_SRC
+
+Example cleaning gcp artifact registry
+#+BEGIN_SRC: sh
+bb fetch-artifact-images clean --image europe-docker.pkg.dev/atomjuice-staging/applications/merchant-api
+#+END_SRC
+
+
+
+* CI
+There is a github action here
+https://github.com/marketplace/actions/babashka-clojure

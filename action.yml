@@ -1,0 +1,16 @@
+# action.yml
+name: 'bb '
+description: 'Custom build action tools'
+inputs:
+  bb-args:  # id of input
+    description: 'Supply your args'
+    required: true
+    default: 'tasks'
+outputs:
+  time: # id of output
+    description: 'The time we greeted you'
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - ${{ inputs.bb-args }}
