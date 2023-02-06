@@ -27,6 +27,9 @@ Copy the tasks you actually need for the project.
    :task (apply ar/list-artifact-images *command-line-args*)}}}
 #+END_SRC
 
+** GCP cron jobs
+The cronjob task will read in a cronjobs.edn file with details on how to deploy for a specific deployment.
+
 ** invoking
 This will list the installed task in =bb.edn=
 #+BEGIN_SRC: sh
