@@ -1,5 +1,5 @@
 FROM babashka/babashka
 
-COPY .
+COPY . /
 
 ENTRYPOINT ["bb"]

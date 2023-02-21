@@ -7,15 +7,25 @@
 
 (def gcp (read-string (slurp "./bb/cronjobs.edn")))
 
+(defn ?assoc
+  "Same as assoc, but skip the assoc if v is nil"
+  [m & kvs]
+  (->> kvs
+    (partition 2)
+    (filter second)
+    (map vec)
+    (into m)))
+
 (defn execute
-  [cmd debug]
-  (if (true? debug)
-    (prn cmd)
-    (try
-      (shell cmd)
-      (catch Exception e
-        (prn (:err e))
-         (prn (:cmd e))))))
+  ([cmd debug] (execute {} cmd debug))
+  ([opts cmd debug]
+   (if (true? debug)
+     (prn cmd)
+     (try
+       (shell opts cmd)
+       (catch Exception e
+         (prn (:err e))
+         (prn (:cmd e)))))))
 
 (defn build-cloud-run-job-url
   ([environment name] (build-cloud-run-job-url :project-id environment name  ))
@@ -24,20 +34,30 @@
     "https://" (:region environment) "-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/" (get environment key) "/jobs/" name)))
 
 
-(defn fetch-cloud-job-list [environment]
+(defn fetch-cloud-job-list [{:keys [environment debug]}]
   (map (fn [job]
+         (prn job)
          (get-in job [:metadata :name]))
-       (-> (shell {:out :string} (str "gcloud beta run jobs list --format=json --project="  (:project-name environment)))
+       (-> (execute {:out :string}
+                    (str "gcloud beta run jobs list --format=json --project="  (:project-name environment))
+                    debug)
            :out
            (json/parse-string true))))
 
 
-(defn fetch-cloud-job-schedule-list [environment]
-  (map (fn [job]  (get-in job [:metadata :name]))
-       (-> (shell {:out :string} (str "gcloud scheduler jobs list --format=json --project="  (:project-name environment)))
+(defn fetch-cloud-job-schedule-list [{:keys [environment debug]}]
+  (map (fn [job]
+         (last (str/split (get-in job [:name]) #"\/")))
+       (-> (execute {:out :string}
+                    (str "gcloud scheduler jobs list --format=json --project="  (:project-name environment))
+                    debug)
            :out
            (json/parse-string true))))
 
+(defn gcp-item-exists?
+  "Given an str and a sequence of str's check if it exists in the list."
+  [item item-list]
+  (some (fn [j] (= item j)) item-list))
 
 (defn cloud-run-job-exists? [job existing-jobs]
   (some (fn [j]
@@ -57,7 +77,7 @@
        " --set-secrets=" (get environment :secrets-path "/app/environment/.env") "=" (:secrets environment)
        " --vpc-egress=all-traffic"
        " --vpc-connector=" (-> environment :vpc-connector)
-       " --image=" (or (:image job) (:image environment))
+       " --image=" (str (or (:image job) (:image environment)) ":" (or (:image-tag job) (:image-tag environment)))
        " --command=" (:cmd job)
        " --memory=" (or (:memory job) "512Mi")
        " --cpu=1"
@@ -80,24 +100,37 @@
   ([] (prn "Please supply environment with -e"))
   ([& args]
    (let [options (:options (parse-opts args [["-e" "--environment ENVIRONMENT" "Environment"]
-                                             ["-d" "--debug DEBUG" "Debug"]]))
+                                             ["-d" "--debug DEBUG" "Debug"]
+                                             ["-i" "--image IMAGE" "Docker image"]
+                                             ["-t" "--image-tag IMAGE-TAG" "Docker image tag"]]))
          environment (keyword (get options :environment "staging"))
+
+         environment-config (?assoc (get-in gcp [:cron environment])
+                                    :image (:image options)
+                                    :image-tag (:image-tag options))
+
          debug (boolean (get options :debug false))
-         existing-jobs-names (fetch-cloud-job-list (get-in gcp [:cron environment]))]
+         existing-jobs-names (fetch-cloud-job-list {:environment (get-in gcp [:cron environment])
+                                                    :debug debug})
+         existing-job-schedules (fetch-cloud-job-schedule-list {:environment (get-in gcp [:cron environment])
+                                                                :debug debug})]
      (->> (:jobs gcp)
-          (filter (fn [[k {:keys [name] :as j}]]
+          #_(filter (fn [[k {:keys [name] :as j}]]
                     (not (cloud-run-job-exists? name existing-jobs-names))))
 
           (mapv (fn process-cronjobs [[job-key job]]
-                  (prn (str "exists ?"
+                  (prn (str "Job exists ?"
                             (cloud-run-job-exists? (:name job) existing-jobs-names)))
                   (execute (create-cloud-jobs-cmd
-                            false
-                            (get-in gcp [:cron environment])
+                            (cloud-run-job-exists? (:name job) existing-jobs-names)
+                            environment-config
                             job) debug)
 
-                  (execute (create-cloud-schedule-cmd
-                            false
-                            (get-in gcp [:cron environment])
-                            job)
-                           debug)))))))
+                  (prn (str "Job Schedule exists ?"
+                            (cloud-run-job-schedule-exists? (:name job) existing-job-schedules)))
+                  (when (false? (cloud-run-job-schedule-exists? (:name job) existing-job-schedules))
+                    (execute (create-cloud-schedule-cmd
+                              false
+                              (get-in gcp [:cron environment])
+                              job)
+                             debug))))))))
