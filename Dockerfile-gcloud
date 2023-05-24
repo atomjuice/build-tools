@@ -1,0 +1,7 @@
+FROM gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+
+RUN apt-get -y install default-jdk
+
+RUN curl -sSL https://raw.githubusercontent.com/babashka/babashka/master/install | bash -
+
+ENTRYPOINT ["bb"]

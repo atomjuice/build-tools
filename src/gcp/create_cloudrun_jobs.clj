@@ -5,7 +5,9 @@
             [babashka.process :refer [shell]]))
 
 
-(def gcp (read-string (slurp "./bb/cronjobs.edn")))
+(def gcp (try (read-string (slurp "./bb/cronjobs.edn"))
+              (catch Exception e
+                (prn "Could not find or load ./bb/cronjobs.edn"))))
 
 (defn ?assoc
   "Same as assoc, but skip the assoc if v is nil"
@@ -35,6 +37,7 @@
 
 
 (defn fetch-cloud-job-list [{:keys [environment debug]}]
+  (prn (:project-name environment))
   (map (fn [job]
          (prn job)
          (get-in job [:metadata :name]))
@@ -96,9 +99,11 @@
        " --oauth-service-account-email=\"" (:service-account environment ) "\""
        " --oauth-token-scope=\"https://www.googleapis.com/auth/cloud-platform\""))
 
+
 (defn install-cronjobs
   ([] (prn "Please supply environment with -e"))
   ([& args]
+   (prn (str "Launched with these params " args))
    (let [options (:options (parse-opts args [["-e" "--environment ENVIRONMENT" "Environment"]
                                              ["-d" "--debug DEBUG" "Debug"]
                                              ["-i" "--image IMAGE" "Docker image"]
@@ -116,7 +121,7 @@
                                                                 :debug debug})]
      (->> (:jobs gcp)
           #_(filter (fn [[k {:keys [name] :as j}]]
-                    (not (cloud-run-job-exists? name existing-jobs-names))))
+                      (not (cloud-run-job-exists? name existing-jobs-names))))
 
           (mapv (fn process-cronjobs [[job-key job]]
                   (prn (str "Job exists ?"

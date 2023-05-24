@@ -43,6 +43,23 @@ bb fetch-artifact-images clean --image europe-docker.pkg.dev/atomjuice-staging/a
 
 
 
+* Google cloud Build
+Using this with cloud build is a bit more complicated as we need gcloud java and bb available, there is a docker file to facilitate this.
+
+Building images for prod and stage projects with these commands
+#+BEGIN_SRC: sh
+docker build -f Dockerfile-gcloud -t europe-docker.pkg.dev/atomjuice-production/tools/babashka .
+docker build -f Dockerfile-gcloud -t europe-docker.pkg.dev/atomjuice-staging/tools/babashka .
+#+END_SRC
+
+
+Push to gcp with these commands.
+#+BEGIN_SRC: sh
+docker push europe-docker.pkg.dev/atomjuice-production/tools/babashka
+docker push europe-docker.pkg.dev/atomjuice-staging/tools/babashka
+#+END_SRC
+
+
 * CI
 There is a github action here
 https://github.com/marketplace/actions/babashka-clojure

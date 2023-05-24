@@ -21,19 +21,21 @@
 
 
 (defn list-artifact-images [& args]
+  (prn args)
   (let [opts  (parse-opts args [["-k" "--keep KEEP" "Number of recent images to keep"]
                                 ["-i" "--image IMAGE" "image to clean up"]])
         command (first (:arguments opts))
         options (:options opts)]
     (prn (case command
            "list"
-           (fetch-artifact-images)
+           (fetch-artifact-images (:image options))
            "clean"
-           (->> (fetch-artifact-images (:image options))
-                (drop (get options :keep 5))
-                (mapv (fn remove-image [image]
-                        (prn (str "Removing " (:package image) "@" (:version image)))
-                        (delete-artifact-image (str (:package image) "@" (:version image)))))
-                (count)
-                (format "Removed %s images."))
-           "finish"))))
+           (do
+             (->> (fetch-artifact-images (:image options))
+                  (drop (Integer/parseInt (get options :keep "5")))
+                  (mapv (fn remove-image [image]
+                          (prn (str "Removing " (:package image) "@" (:version image)))
+                          (delete-artifact-image (str (:package image) "@" (:version image)))))
+                  (count)
+                  (format "Removed %s images."))
+             "finish")))))
